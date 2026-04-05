@@ -15,9 +15,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class VanishManager {
 
-    private static final int HOTKEY_ID = 6742;
-    private static final int MOD_CONTROL = 0x0002;
-
     private static final Logger LOGGER = LoggerFactory.getLogger(WindowVanish.MOD_ID);
 
     private static WinUser.HHOOK hHook;
@@ -29,21 +26,17 @@ public class VanishManager {
     public static void forceFocus(WinDef.HWND targetHwnd) {
         ExtendedUser32 u32 = ExtendedUser32.INSTANCE;
 
-        // Fix 1: Use Kernel32 for the current thread ID
         int currentThreadID = Kernel32.INSTANCE.GetCurrentThreadId();
         int foregroundThreadID = u32.GetWindowThreadProcessId(u32.GetForegroundWindow(), null);
 
         if (foregroundThreadID != currentThreadID) {
             u32.AttachThreadInput(new WinDef.DWORD(currentThreadID), new WinDef.DWORD(foregroundThreadID), true);
 
-            // Fix 2: Correct ULONG_PTR instantiation
-            // Simulate Alt Key Down (0x12)
             u32.keybd_event((byte) 0x12, (byte) 0, 0, new BaseTSD.ULONG_PTR(0));
 
             u32.SetForegroundWindow(targetHwnd);
             u32.SetFocus(targetHwnd);
 
-            // Simulate Alt Key Up (0x0002)
             u32.keybd_event((byte) 0x12, (byte) 0, 0x0002, new BaseTSD.ULONG_PTR(0));
 
             u32.AttachThreadInput(new WinDef.DWORD(currentThreadID), new WinDef.DWORD(foregroundThreadID), false);
@@ -51,7 +44,6 @@ public class VanishManager {
             u32.SetForegroundWindow(targetHwnd);
         }
 
-        // The Z-Order Kick
         u32.SetWindowPos(targetHwnd, new WinDef.HWND(new Pointer(-1)), 0, 0, 0, 0, 0x0040 | 0x0002 | 0x0001);
         u32.SetWindowPos(targetHwnd, new WinDef.HWND(new Pointer(-2)), 0, 0, 0, 0, 0x0040 | 0x0002 | 0x0001);
     }
@@ -64,21 +56,16 @@ public class VanishManager {
         WinDef.HWND hwnd = new WinDef.HWND(new Pointer(windowHandle));
         ExtendedUser32 user32 = ExtendedUser32.INSTANCE;
 
-        // 1. Remove from Taskbar/Alt-Tab immediately (Tool Window style)
         int style = user32.GetWindowLong(hwnd, GWL_EXSTYLE);
         user32.SetWindowLong(hwnd, GWL_EXSTYLE, (style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW);
 
-        // 2. Force hide flags: NOACTIVATE and HIDEWINDOW are key here
         user32.SetWindowPos(hwnd, new WinDef.HWND(new Pointer(1)), 0, 0, 0, 0,
                 0x0080 | 0x0010 | 0x0002 | 0x0001 | 0x0040); // HIDE | NOACTIVATE | NOMOVE | NOSIZE | SHOWWINDOW
 
-        // 3. Instead of Desktop, try to find the previous window or just minimize
         user32.ShowWindow(hwnd, WinUser.SW_MINIMIZE);
 
-        // still focus on Desktop
         User32.INSTANCE.SetForegroundWindow(User32.INSTANCE.GetDesktopWindow());
 
-        // We still try GLFW for when the thread unfreezes, but don't rely on it
         CompletableFuture.runAsync(() -> {
             if (Minecraft.getInstance().isRunning()) {
                 GLFW.glfwHideWindow(windowHandle);
@@ -91,19 +78,14 @@ public class VanishManager {
         WinDef.HWND hwnd = new WinDef.HWND(new Pointer(windowHandle));
         ExtendedUser32 user32 = ExtendedUser32.INSTANCE;
 
-        // 1. Reset Styles (Remove ToolWindow, Restore AppWindow)
         int style = user32.GetWindowLong(hwnd, GWL_EXSTYLE);
         user32.SetWindowLong(hwnd, GWL_EXSTYLE, (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW);
 
-        // 2. Show and Restore
         // SW_SHOW (5) or SW_RESTORE (9).
-        // If it was minimized, use 9. If just hidden, use 5.
         user32.ShowWindow(hwnd, 5);
 
-        // 3. Trigger the aggressive focus
         forceFocus(hwnd);
 
-        // 4. Legacy "Switch" just in case
         user32.SwitchToThisWindow(hwnd, true);
 
         CompletableFuture.runAsync(() -> {
@@ -155,7 +137,7 @@ public class VanishManager {
     }
 
     public static void registerGlobalShortcut() {
-        if (!OsDetector.isWindows()) {
+        if (!OperatingSytemChecker.isWindows()) {
             LOGGER.error("Cannot initialize WindowVanish on non-Windows machine");
             return;
         }
@@ -171,7 +153,6 @@ public class VanishManager {
                     // 0x0100 = WM_KEYDOWN, 0x0104 = WM_SYSKEYDOWN (triggered when Alt is involved)
                     if (message == 0x0100 || message == 0x0104) {
 
-                        // Case 1: Caps Lock (0x14) is pressed. Check if Alt is already held.
                         // (info.flags & 0x20) checks the LLKHF_ALTDOWN bit.
                         boolean altIsDown = (info.flags & 0x20) != 0;
                         if (vk == 0x14 && altIsDown) {
@@ -179,8 +160,7 @@ public class VanishManager {
                             return new WinDef.LRESULT(1); // Swallow the keypress
                         }
 
-                        // Case 2: Alt (0x12) is pressed. Check if Caps Lock is physically held down.
-                        // We use GetAsyncKeyState (0x8000) to check the physical state.
+                        // GetAsyncKeyState (0x8000) to check the physical state.
                         if (vk == 0x12 || vk == 0x11 || vk == 0xA4 || vk == 0xA5) { // VK_MENU / LALT / RALT
                             short capsLockState = user32.GetAsyncKeyState(0x14);
                             boolean capsIsDown = (capsLockState & 0x8000) != 0;

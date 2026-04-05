@@ -1,7 +1,7 @@
 package com.windowvanish.client.mixin;
 
 import com.windowvanish.WindowVanish;
-import com.windowvanish.client.OsDetector;
+import com.windowvanish.client.OperatingSytemChecker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
@@ -21,12 +21,12 @@ public class LocalPlayerMixin {
 
     @Inject(at = @At("TAIL"), method = "<init>")
     private void onPlayerConstructed(CallbackInfo ci) {
-        if (!OsDetector.isWindows()) {
+        if (!OperatingSytemChecker.isWindows()) {
             LOGGER.info("Queueing incompatible chat message on another thread");
             new Thread(() -> {
                 try {
                     Thread.sleep(5_000);
-                    if (!OsDetector.isWindows()) {
+                    if (!OperatingSytemChecker.isWindows()) {
                         Minecraft.getInstance().execute(() -> {
                             assert Minecraft.getInstance().player != null;
                             Minecraft.getInstance().player.sendSystemMessage(Component.translatable("text.windowvanish.incompatibleOperatingSystem"));

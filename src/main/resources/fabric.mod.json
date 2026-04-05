@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "windowvanish",
+	"version": "${version}",
+	"name": "WindowVanish",
+	"description": "Hides your window immediately!",
+	"authors": [
+		"CariLT01"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+          "com.windowvanish.WindowVanish"
+		],
+		"client": [
+			"com.windowvanish.client.VanishClient"
+		]
+	},
+	"mixins": [
+		"vanish.mixins.json",
+		{
+			"config": "vanish.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.17.4",
+		"minecraft": "~26.1",
+		"java": ">=25"
+	}
+}

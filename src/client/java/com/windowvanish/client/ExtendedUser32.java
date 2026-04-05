@@ -1,4 +1,4 @@
-package com.windowVanish2.client;
+package com.windowvanish.client;
 
 import com.sun.jna.Native;
 import com.sun.jna.platform.win32.User32;
